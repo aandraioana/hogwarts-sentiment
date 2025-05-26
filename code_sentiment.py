@@ -43,7 +43,7 @@ def get_sentiment(reviews):
         if polarity <= -0.05:  # Consider reviews with polarity <= -0.05 as negative
             sentiments.append(NEGATIVE)
         else:
-            sentiments.append(POSITIVE) # Keeping positive for completeness, though not used in negative analysis
+            sentiments.append(POSITIVE)
     return sentiments
 
 def extract_keywords_from_negative(reviews, sentiments):
@@ -141,6 +141,42 @@ def main():
     plt.ylabel('Number of Appearances')
     plt.tight_layout()
     plt.savefig("negative_theme_appearances.png")
+    plt.show()
+    plt.figure(figsize=(10, 6))
+    polarity_scores = [get_polarity_score(review) for review in processed_reviews]
+    sns.histplot(polarity_scores, bins=30, kde=True, color='purple')
+    plt.title('Distribution of Sentiment Polarity Scores')
+    plt.xlabel('Polarity Score (-1.0 to 1.0)')
+    plt.ylabel('Frequency')
+    plt.tight_layout()
+    plt.savefig("polarity_distribution.png")
+    plt.show()
+    # --- Sentiment Distribution by Playtime Bin ---
+    print("\n--- Sentiment Distribution by Playtime Bin ---")
+    # Drop rows where 'Playtime' might still be NaN after initial dropna, or if 0 playtime
+    df_filtered_playtime = df[df['Playtime'] > 0].copy()
+
+    # Create 3 playtime bins (quantiles)
+    df_filtered_playtime['Playtime_Bin'] = pd.qcut(
+        df_filtered_playtime['Playtime'],
+        q=3,
+        labels=['Short Playtime', 'Medium Playtime', 'Long Playtime'],
+        duplicates='drop'  # Handle cases with duplicate bin edges if data is sparse
+    )
+
+    # Group by Playtime_Bin and Sentiment, then count
+    sentiment_by_playtime = df_filtered_playtime.groupby(['Playtime_Bin', 'Sentiment']).size().unstack(fill_value=0)
+
+    # Plotting
+    sentiment_by_playtime.plot(kind='bar', stacked=False, figsize=(12, 7),
+                               color={'Positive': 'green', 'Negative': 'red'})
+    plt.title('Positive vs. Negative Reviews by Playtime Category')
+    plt.xlabel('Playtime Category')
+    plt.ylabel('Number of Reviews')
+    plt.xticks(rotation=45, ha='right')
+    plt.legend(title='Sentiment')
+    plt.tight_layout()
+    plt.savefig("sentiment_by_playtime.png")
     plt.show()
 
 if __name__ == '__main__':
