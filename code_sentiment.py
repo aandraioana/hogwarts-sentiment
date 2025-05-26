@@ -1,5 +1,3 @@
-
-
 from textblob import TextBlob
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,6 +14,38 @@ NEUTRAL = "Neutral"
 def load_data(file):
     df = pd.read_csv(file)
     return df['Review']
+
+from collections import Counter
+from wordcloud import WordCloud
+import nltk
+from nltk.corpus import stopwords
+#stopwords are like the, is, and
+nltk.download('stopwords')
+STOPWORDS = set(stopwords.words('english'))
+def extract_keywords_from_negative(reviews, sentiments):
+    negative_reviews = [review for review, sentiment in zip(reviews, sentiments) if sentiment == NEGATIVE]
+    all_words = []
+
+    for review in negative_reviews:
+        words = review.split()
+        filtered = [word for word in words if word not in STOPWORDS and len(word) > 2]
+        all_words.extend(filtered)
+
+    # Count most common words
+    word_freq = Counter(all_words)
+    return word_freq
+def plot_keywords(word_freq, top_n=20):
+    most_common = word_freq.most_common(top_n)
+    words = [item[0] for item in most_common]
+    counts = [item[1] for item in most_common]
+
+    plt.figure(figsize=(10, 6))
+    plt.barh(words[::-1], counts[::-1], color='red')
+    plt.title("Top Keywords in Negative Reviews")
+    plt.xlabel("Frequency")
+    plt.tight_layout()
+    plt.savefig("negative_keywords.png")
+    plt.show()
 
 # Preprocess reviews: lowercase, remove symbols and tags
 def preprocess_reviews(reviews):
@@ -71,7 +101,14 @@ def plot_pie(sentiments):
     plt.tight_layout()
     plt.savefig("statistics.png")
     plt.show()
+from sklearn.feature_extraction.text import CountVectorizer
 
+def get_ngrams(reviews, n=2, top_n=20):
+    vectorizer = CountVectorizer(ngram_range=(n, n), stop_words='english')
+    X = vectorizer.fit_transform(reviews)
+    sum_words = X.sum(axis=0)
+    words_freq = [(word, sum_words[0, idx]) for word, idx in vectorizer.vocabulary_.items()]
+    return sorted(words_freq, key=lambda x: x[1], reverse=True)[:top_n]
 # Main
 def main():
 
@@ -84,6 +121,22 @@ def main():
     # Save to CSV
     df.to_csv("output.csv", index=False)
     plot_pie(sentiments)
+    word_freq = extract_keywords_from_negative(processed_reviews, sentiments)
+    plot_keywords(word_freq)
+    negative_reviews = [review for review, sentiment in zip(processed_reviews, sentiments) if sentiment == NEGATIVE]
 
+    # Get top bigrams (n=2) from negative reviews
+    top_bigrams = get_ngrams(negative_reviews, n=3, top_n =20 )
+
+    # Print or log the top bigrams
+    print("Top Bigrams in Negative Reviews 3 words:")
+    for phrase, freq in top_bigrams:
+        print(f"{phrase}: {freq}")
+    top_bigrams = get_ngrams(negative_reviews, n=2, top_n=15)
+
+    # Print or log the top bigrams
+    print("Top Bigrams in Negative Reviews 2 words:")
+    for phrase, freq in top_bigrams:
+        print(f"{phrase}: {freq}")
 if __name__ == '__main__':
     main()
